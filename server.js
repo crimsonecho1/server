@@ -1,4 +1,3 @@
-// backend/server.js
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -7,10 +6,15 @@ const { spawn } = require('child_process');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-app.use(cors());
+// ✅ تفعيل CORS للسماح بالتواصل من React
+app.use(cors({
+    origin: '*', // يمكنك استبدال * بـ 'http://localhost:3000' أو دومين الإنتاج
+    methods: ['GET', 'POST']
+}));
+
 app.use(express.json());
 
-// Route to fetch video info
+// ✅ API: معلومات الفيديو
 app.post('/info', (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'Missing URL' });
@@ -41,7 +45,7 @@ app.post('/info', (req, res) => {
 
             info.formats.forEach(f => {
                 const resolution = f.height ? `${f.height}p` : 'audio';
-                if (!f.filesize) return;
+                if (!f.filesize) return; // تجاهل الجودة التي لا تحتوي على حجم
 
                 if (f.ext === 'mp4' && f.vcodec !== 'none') {
                     if (!mp4Formats[resolution]) {
@@ -81,19 +85,19 @@ app.post('/info', (req, res) => {
     });
 });
 
-// Route to download video
+// ✅ API: تحميل الفيديو/الصوت
 app.get('/download', (req, res) => {
     const { url, format_id } = req.query;
     if (!url || !format_id) return res.status(400).json({ error: 'Missing URL or format ID' });
 
-    res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
+    res.setHeader('Content-Disposition', 'attachment; filename="downloaded_video.mp4"');
 
     const process = spawn(path.join(__dirname, 'yt-dlp.exe'), [
         url,
         '-f', format_id,
         '-o', '-',
         '--merge-output-format', 'mp4',
-        '--ffmpeg-location', path.join(__dirname, './ffmpeg/ffmpeg.exe')
+        '--ffmpeg-location', path.join(__dirname, './ffmpeg/ffmpeg.exe') // 🔧 مسار FFmpeg
     ]);
 
     process.stdout.pipe(res);
@@ -108,6 +112,7 @@ app.get('/download', (req, res) => {
     });
 });
 
+// ✅ تشغيل السيرفر
 app.listen(PORT, () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);
 });
