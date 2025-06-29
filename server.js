@@ -1,43 +1,26 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
-const { spawn } = require('child_process');
+const youtubedl = require('youtube-dl-exec').raw;
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// ✅ تفعيل CORS للسماح بالتواصل من React
-app.use(cors({
-    origin: '*', // يمكنك استبدال * بـ 'http://localhost:3000' أو دومين الإنتاج
-    methods: ['GET', 'POST']
-}));
-
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-// ✅ API: معلومات الفيديو
-app.post('/info', (req, res) => {
+app.post('/info', async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'Missing URL' });
 
-    const ytDlp = spawn(path.join(__dirname, 'yt-dlp.exe'), [
+    const process = youtubedl(
         url,
-        '--dump-json',
-        '--no-playlist'
-    ]);
+        ['--dump-json', '--no-playlist'],
+        { shell: true }
+    );
 
     let data = '';
-
-    ytDlp.stdout.on('data', chunk => {
-        data += chunk.toString();
-    });
-
-    ytDlp.stderr.on('data', err => {
-        console.error('yt-dlp error:', err.toString());
-    });
-
-    ytDlp.on('close', code => {
-        if (code !== 0) return res.status(500).json({ error: 'yt-dlp failed' });
-
+    process.stdout.on('data', chunk => data += chunk.toString());
+    process.stdout.on('end', () => {
         try {
             const info = JSON.parse(data);
             const mp4Formats = {};
@@ -45,7 +28,7 @@ app.post('/info', (req, res) => {
 
             info.formats.forEach(f => {
                 const resolution = f.height ? `${f.height}p` : 'audio';
-                if (!f.filesize) return; // تجاهل الجودة التي لا تحتوي على حجم
+                if (!f.filesize) return;
 
                 if (f.ext === 'mp4' && f.vcodec !== 'none') {
                     if (!mp4Formats[resolution]) {
@@ -58,7 +41,7 @@ app.post('/info', (req, res) => {
                     }
                 }
 
-                if (f.ext === 'mp3' || (f.vcodec === 'none' && f.acodec !== 'none')) {
+                if (f.vcodec === 'none' && f.acodec !== 'none') {
                     if (!mp3Formats[resolution]) {
                         mp3Formats[resolution] = {
                             format_id: f.format_id,
@@ -78,41 +61,37 @@ app.post('/info', (req, res) => {
                     mp3: Object.values(mp3Formats)
                 }
             });
-        } catch (e) {
-            console.error(e);
-            res.status(500).json({ error: 'Invalid video data' });
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: 'Failed to parse video data' });
         }
     });
 });
 
-// ✅ API: تحميل الفيديو/الصوت
 app.get('/download', (req, res) => {
     const { url, format_id } = req.query;
     if (!url || !format_id) return res.status(400).json({ error: 'Missing URL or format ID' });
 
-    res.setHeader('Content-Disposition', 'attachment; filename="downloaded_video.mp4"');
+    res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
 
-    const process = spawn(path.join(__dirname, 'yt-dlp.exe'), [
+    const process = youtubedl(
         url,
-        '-f', format_id,
-        '-o', '-',
-        '--merge-output-format', 'mp4',
-        '--ffmpeg-location', path.join(__dirname, './ffmpeg/ffmpeg.exe') // 🔧 مسار FFmpeg
-    ]);
+        ['-f', format_id, '-o', '-', '--merge-output-format', 'mp4'],
+        { shell: true }
+    );
 
     process.stdout.pipe(res);
 
     process.stderr.on('data', data => {
-        console.error(`stderr: ${data}`);
+        console.error('stderr:', data.toString());
     });
 
-    process.on('error', (err) => {
-        console.error(`Download error: ${err}`);
+    process.on('error', err => {
+        console.error('Download error:', err);
         res.status(500).json({ error: 'Download failed' });
     });
 });
 
-// ✅ تشغيل السيرفر
 app.listen(PORT, () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);
 });
