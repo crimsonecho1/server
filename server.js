@@ -71,15 +71,9 @@ app.get('/download', (req, res) => {
 
     res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
 
-    const process = youtubedl.exec(
+    const process = youtubedl(
         url,
-        {
-            f: format_id,
-            o: '-',
-            mergeOutputFormat: 'mp4',
-            // إذا كنت تستخدم cookies:
-            // cookies: 'cookies.txt'
-        },
+        ['--dump-single-json', '--no-playlist', '--prefer-free-formats', '--cookies', 'cookies.txt'],
         { shell: true }
     );
 
