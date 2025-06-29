@@ -71,12 +71,11 @@ app.get('/download', (req, res) => {
 
     res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
 
-    const process = youtubedl.exec(url, {
-        format: format_id,
-        output: '-',
-        mergeOutputFormat: 'mp4',
-        stdout: 'pipe'
-    });
+    const process = youtubedl(
+        url,
+        ['--dump-single-json', '--no-playlist', '--prefer-free-formats', '--cookies', 'cookies.txt'],
+        { shell: true }
+    );
 
     process.stdout.pipe(res);
 
