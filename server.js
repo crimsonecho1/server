@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const cors = require('cors');
 const youtubedl = require('youtube-dl-exec');
@@ -5,7 +6,7 @@ const youtubedl = require('youtube-dl-exec');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-app.use(cors({ origin: '*' }));
+app.use(cors());
 app.use(express.json());
 
 app.post('/info', async (req, res) => {
@@ -14,15 +15,15 @@ app.post('/info', async (req, res) => {
 
     try {
         const info = await youtubedl(url, {
-            dumpJson: true,
+            dumpSingleJson: true,
             noPlaylist: true,
-            executablePath: '/usr/bin/yt-dlp'
+            preferFreeFormats: true
         });
 
         const mp4Formats = {};
         const mp3Formats = {};
 
-        info.formats.forEach(f => {
+        info.formats?.forEach(f => {
             const resolution = f.height ? `${f.height}p` : 'audio';
             if (!f.filesize) return;
 
@@ -57,31 +58,33 @@ app.post('/info', async (req, res) => {
                 mp3: Object.values(mp3Formats)
             }
         });
-    } catch (err) {
-        console.error(err);
+
+    } catch (error) {
+        console.error(error);
         res.status(500).json({ error: 'Failed to fetch video info' });
     }
 });
 
 app.get('/download', (req, res) => {
     const { url, format_id } = req.query;
-    if (!url || !format_id) return res.status(400).json({ error: 'Missing URL or format ID' });
+    if (!url || !format_id) return res.status(400).json({ error: 'Missing parameters' });
 
     res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
 
-    const process = youtubedl.raw(
-        url,
-        ['-f', format_id, '-o', '-', '--merge-output-format', 'mp4'],
-        { shell: true, executablePath: '/usr/bin/yt-dlp' }
-    );
+    const process = youtubedl.exec(url, {
+        format: format_id,
+        output: '-',
+        mergeOutputFormat: 'mp4',
+        stdout: 'pipe'
+    });
 
     process.stdout.pipe(res);
 
-    process.stderr.on('data', data => {
+    process.stderr.on('data', (data) => {
         console.error('stderr:', data.toString());
     });
 
-    process.on('error', err => {
+    process.on('error', (err) => {
         console.error('Download error:', err);
         res.status(500).json({ error: 'Download failed' });
     });
