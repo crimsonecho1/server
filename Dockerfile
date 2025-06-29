@@ -14,3 +14,5 @@ ENV YOUTUBE_DL_SKIP_PYTHON_CHECK=1
 
 EXPOSE 8080
 CMD ["node", "server.js"]
+
+RUN apt-get update && apt-get install -y ffmpeg
