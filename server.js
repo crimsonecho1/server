@@ -1,8 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const youtubedl = require('youtube-dl-exec').raw;
-
-const YT_DLP_PATH = '/usr/bin/yt-dlp'; // المسار المناسب داخل الحاوية
+const youtubedl = require('youtube-dl-exec');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -14,60 +12,55 @@ app.post('/info', async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'Missing URL' });
 
-    const process = youtubedl(
-        url,
-        ['--dump-json', '--no-playlist'],
-        { shell: true, executablePath: YT_DLP_PATH }
-    );
+    try {
+        const info = await youtubedl(url, {
+            dumpJson: true,
+            noPlaylist: true,
+            executablePath: '/usr/bin/yt-dlp'
+        });
 
-    let data = '';
-    process.stdout.on('data', chunk => data += chunk.toString());
-    process.stdout.on('end', () => {
-        try {
-            const info = JSON.parse(data);
-            const mp4Formats = {};
-            const mp3Formats = {};
+        const mp4Formats = {};
+        const mp3Formats = {};
 
-            info.formats.forEach(f => {
-                const resolution = f.height ? `${f.height}p` : 'audio';
-                if (!f.filesize) return;
+        info.formats.forEach(f => {
+            const resolution = f.height ? `${f.height}p` : 'audio';
+            if (!f.filesize) return;
 
-                if (f.ext === 'mp4' && f.vcodec !== 'none') {
-                    if (!mp4Formats[resolution]) {
-                        mp4Formats[resolution] = {
-                            format_id: f.format_id,
-                            resolution,
-                            ext: 'mp4',
-                            filesize: f.filesize
-                        };
-                    }
+            if (f.ext === 'mp4' && f.vcodec !== 'none') {
+                if (!mp4Formats[resolution]) {
+                    mp4Formats[resolution] = {
+                        format_id: f.format_id,
+                        resolution,
+                        ext: 'mp4',
+                        filesize: f.filesize
+                    };
                 }
+            }
 
-                if (f.vcodec === 'none' && f.acodec !== 'none') {
-                    if (!mp3Formats[resolution]) {
-                        mp3Formats[resolution] = {
-                            format_id: f.format_id,
-                            resolution: 'audio',
-                            ext: 'mp3',
-                            filesize: f.filesize
-                        };
-                    }
+            if (f.vcodec === 'none' && f.acodec !== 'none') {
+                if (!mp3Formats[resolution]) {
+                    mp3Formats[resolution] = {
+                        format_id: f.format_id,
+                        resolution: 'audio',
+                        ext: 'mp3',
+                        filesize: f.filesize
+                    };
                 }
-            });
+            }
+        });
 
-            res.json({
-                title: info.title,
-                thumbnail: info.thumbnail,
-                formats: {
-                    mp4: Object.values(mp4Formats),
-                    mp3: Object.values(mp3Formats)
-                }
-            });
-        } catch (err) {
-            console.error(err);
-            res.status(500).json({ error: 'Failed to parse video data' });
-        }
-    });
+        res.json({
+            title: info.title,
+            thumbnail: info.thumbnail,
+            formats: {
+                mp4: Object.values(mp4Formats),
+                mp3: Object.values(mp3Formats)
+            }
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch video info' });
+    }
 });
 
 app.get('/download', (req, res) => {
@@ -76,10 +69,10 @@ app.get('/download', (req, res) => {
 
     res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
 
-    const process = youtubedl(
+    const process = youtubedl.raw(
         url,
         ['-f', format_id, '-o', '-', '--merge-output-format', 'mp4'],
-        { shell: true, executablePath: YT_DLP_PATH }
+        { shell: true, executablePath: '/usr/bin/yt-dlp' }
     );
 
     process.stdout.pipe(res);
