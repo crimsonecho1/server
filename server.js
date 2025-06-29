@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const youtubedl = require('youtube-dl-exec').raw;
 
+const YT_DLP_PATH = '/usr/bin/yt-dlp'; // المسار المناسب داخل الحاوية
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
@@ -15,7 +17,7 @@ app.post('/info', async (req, res) => {
     const process = youtubedl(
         url,
         ['--dump-json', '--no-playlist'],
-        { shell: true }
+        { shell: true, executablePath: YT_DLP_PATH }
     );
 
     let data = '';
@@ -77,7 +79,7 @@ app.get('/download', (req, res) => {
     const process = youtubedl(
         url,
         ['-f', format_id, '-o', '-', '--merge-output-format', 'mp4'],
-        { shell: true }
+        { shell: true, executablePath: YT_DLP_PATH }
     );
 
     process.stdout.pipe(res);
