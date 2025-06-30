@@ -8,8 +8,24 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// مسار ملف الكوكيز
+const COOKIES_PATH = path.join(__dirname, 'youtube.com_cookies.txt');
+
 app.use(cors());
 app.use(express.json());
+
+// خيارات أساسية لـ youtube-dl-exec
+const baseOptions = {
+    noPlaylist: true,
+    preferFreeFormats: true,
+    // إضافة الكوكيز إذا كان الملف موجوداً
+    ...(fs.existsSync(COOKIES_PATH) && { cookies: COOKIES_PATH }),
+    // خيارات إضافية لتجنب حظر اليوتيوب
+    forceIpv4: true,
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    referer: 'https://www.youtube.com/',
+    verbose: true
+};
 
 app.post('/info', async (req, res) => {
     const { url } = req.body;
@@ -17,10 +33,9 @@ app.post('/info', async (req, res) => {
 
     try {
         const info = await youtubedl(url, {
-            dumpSingleJson: true,
-            noPlaylist: true
+            ...baseOptions,
+            dumpSingleJson: true
         });
-        
 
         const mp4Formats = {};
         const mp3Formats = {};
@@ -66,8 +81,11 @@ app.post('/info', async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to fetch video info' });
+        console.error('Video info error:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch video info',
+            details: error.message
+        });
     }
 });
 
@@ -82,6 +100,7 @@ app.get('/download', async (req, res) => {
 
     try {
         await youtubedl(url, {
+            ...baseOptions,
             f: `${format_id}+${audio_id}`,
             o: outputPath,
             mergeOutputFormat: 'mp4',
@@ -89,14 +108,22 @@ app.get('/download', async (req, res) => {
         });
 
         res.download(outputPath, 'video.mp4', (err) => {
-            fs.unlinkSync(outputPath); // حذف الملف بعد التحميل
+            if (!err) fs.unlinkSync(outputPath);
         });
     } catch (err) {
         console.error('Download error:', err);
-        res.status(500).json({ error: 'Download failed' });
+        res.status(500).json({ 
+            error: 'Download failed',
+            details: err.message
+        });
     }
 });
 
 app.listen(PORT, () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);
+    if (fs.existsSync(COOKIES_PATH)) {
+        console.log('🔑 Using YouTube cookies for authentication');
+    } else {
+        console.log('⚠️ No YouTube cookies found - using limited access');
+    }
 });
