@@ -18,9 +18,9 @@ app.post('/info', async (req, res) => {
     try {
         const info = await youtubedl(url, {
             dumpSingleJson: true,
-            noPlaylist: true,
-            preferFreeFormats: true
+            noPlaylist: true
         });
+        
 
         const mp4Formats = {};
         const mp3Formats = {};
@@ -85,7 +85,7 @@ app.get('/download', async (req, res) => {
             f: `${format_id}+${audio_id}`,
             o: outputPath,
             mergeOutputFormat: 'mp4',
-            ffmpegLocation: './ffmpeg/ffmpeg.exe' // تأكد أن ffmpeg في PATH
+            ffmpegLocation: './ffmpeg/ffmpeg'
         });
 
         res.download(outputPath, 'video.mp4', (err) => {
