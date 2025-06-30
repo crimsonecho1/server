@@ -1,16 +1,21 @@
 #!/bin/bash
 # تحميل ffmpeg إلى مجلد محلي
 mkdir -p ./ffmpeg
-wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
 tar -xf ffmpeg-release-amd64-static.tar.xz
 mv ffmpeg-*-static/ffmpeg ./ffmpeg/
 chmod +x ./ffmpeg/ffmpeg
+rm ffmpeg-release-amd64-static.tar.xz
 
-# إنشاء ملف الكوكيز من محتوى الملف المرفق
-cat <<EOT > youtube.com_cookies.txt
+# التحقق من وجود ملف الكوكيز
+if [ -f "youtube.com_cookies.txt" ]; then
+    echo "🔑 YouTube cookies file found"
+else
+    echo "⚠️ No YouTube cookies file found - creating default"
+    cat <<EOT > youtube.com_cookies.txt
 # Netscape HTTP Cookie File
 # http://curl.haxx.se/rfc/cookie_spec.html
-# This is a generated file!  Do not edit.
+# This is a generated file! Do not edit.
 
 .youtube.com	TRUE	/	TRUE	1782395654	__Secure-3PAPISID	2qTfl8cLPYwkVzyW/A8LtI4P9LKU02ZnPl
 .youtube.com	TRUE	/	TRUE	1785852920	PREF	tz=Africa.Cairo&f7=100&f5=20000
@@ -20,6 +25,7 @@ cat <<EOT > youtube.com_cookies.txt
 .youtube.com	TRUE	/	TRUE	1782828923	__Secure-3PSIDTS	sidts-CjEB5H03PzCMnssb7a3ngXYHk9joj_zSjX1Hpe3vG35N7NPrIQsblV9Lp_VFCQOsQrrQEAA
 .youtube.com	TRUE	/	TRUE	1782828942	__Secure-3PSIDCC	AKEyXzXF0q6Xg6CZjdZtQgn3nnCdgD2K9AQ9JKprCxWxjMjpLYF2BvWx5Zut88eK_BPgLZOhlFQ
 EOT
+fi
 
 # شغل الخادم
 node server.js

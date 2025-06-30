@@ -1,18 +1,25 @@
-# Dockerfile
 FROM node:18
 
-# تثبيت python و yt-dlp و ffmpeg
-RUN apt-get update && apt-get install -y python3 ffmpeg yt-dlp
+# تثبيت التبعيات المطلوبة
+RUN apt-get update && \
+    apt-get install -y python3 ffmpeg wget && \
+    rm -rf /var/lib/apt/lists/*
 
+# نسخ ملفات المشروع
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
 COPY . .
+
+# تثبيت تبعيات Node.js
+RUN npm install
 
 # إعداد متغير البيئة لتخطي فحص python
 ENV YOUTUBE_DL_SKIP_PYTHON_CHECK=1
 
-EXPOSE 8080
-CMD ["node", "server.js"]
+# منح صلاحيات التشغيل لملفات السكربت
+RUN chmod +x ./start.sh
 
-RUN apt-get update && apt-get install -y ffmpeg
+EXPOSE 8080
+
+# تشغيل سكربت البدء
+CMD ["./start.sh"]
